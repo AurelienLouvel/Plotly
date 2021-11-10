@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Plotly</title>
+    <script src="https://cdn.plot.ly/plotly-2.4.2.min.js"></script>
+  </head>
+  <body>
+    <div id="graph1" style="width: 600px; height: 250px"></div>
+    <div id="graph2" style="width: 600px; height: 250px"></div>
+    <div id="graph3" style="width: 500px; height: 500px"></div>
+    <div id="graph4" style="width: 500px; height: 500px"></div>
+
+    <script>
+      class SPARQLQueryDispatcher {
+        constructor(endpoint) {
+          this.endpoint = endpoint;
+        }
+
+        query(sparqlQuery) {
+          const fullUrl =
+            this.endpoint + "?query=" + encodeURIComponent(sparqlQuery);
+          const headers = { Accept: "application/sparql-results+json" };
+
+          return fetch(fullUrl, { headers }).then((body) => body.json());
+        }
+      }
+
+      const endpointUrl = "https://query.wikidata.org/sparql";
+      const sparqlQuery = `SELECT ?film ?realisateur ?realisateurLabel ?genreLabel ?duree ?imdb ?allocine ?cout (MAX(?boxOffice) AS ?bo) (MIN(?paysReal) AS ?paysRealLabel) (MIN(?date_de_publication) AS ?date) WHERE {
+      SERVICE wikibase:label { bd:serviceParam wikibase:language "[AUTO_LANGUAGE],fr,en". }
+      ?film wdt:P166 wd:Q105304.
+      ?film wdt:P57 ?realisateur;
+        wdt:P345 ?imdb.
+      OPTIONAL { ?film wdt:P1265 ?allocine. }
+      OPTIONAL { ?film wdt:P2142 ?boxOffice. }
+      OPTIONAL { ?film wdt:P2130 ?cout. }
+      OPTIONAL { ?film wdt:P2047 ?duree. }
+      ?realisateur wdt:P21 ?genre;
+        wdt:P27 ?pays.
+      ?pays rdfs:label ?paysReal.
+      FILTER((LANG(?paysReal)) = "fr")
+      OPTIONAL { ?film wdt:P577 ?date_de_publication. }
+    }
+    GROUP BY ?film ?filmLabel ?realisateur ?realisateurLabel ?genreLabel ?imdb ?allocine ?cout ?duree ?paysRealLabel
+    ORDER BY DESC (?date)
+    LIMIT 1000`;
+
+      const queryDispatcher = new SPARQLQueryDispatcher(endpointUrl);
+      queryDispatcher.query(sparqlQuery).then((data) => {
+        let films = data.results.bindings;
+
+        let paysReal = {};
+
+        films.forEach((film) => {
+          if (film.paysRealLabel.value in paysReal) {
+            paysReal[film.paysRealLabel.value]++;
+          } else {
+            paysReal[film.paysRealLabel.value] = 1;
+          }
+        });
+
+        let paysRealTri = [];
+
+        for (var pays in paysReal) {
+          paysRealTri.push([pays, paysReal[pays]]);
+        }
+
+        paysRealTri.sort((a, b) => {
+          return b[1] - a[1];
+        });
+
+        let objPaysRealTri = {};
+
+        paysRealTri.forEach((pays) => {
+          objPaysRealTri[pays[0]] = pays[1];
+        });
+
+        graphpays = document.getElementById("graph4");
+        Plotly.newPlot(graph4, [
+          {
+            x: Object.keys(objPaysRealTri),
+            y: Object.values(objPaysRealTri),
+            type: "bar",
+          },
+        ]);
+      });
+
+      graph1 = document.getElementById("graph1");
+      Plotly.newPlot(
+        graph1,
+        [
+          {
+            x: [1, 2, 3, 4, 5],
+            y: [1, 2, 4, 8, 16],
+            type: "bar",
+          },
+        ],
+        {
+          margin: { t: 0 },
+        }
+      );
+      graph2 = document.getElementById("graph2");
+      Plotly.newPlot(
+        graph2,
+        [
+          {
+            x: [
+              "2020-01-15",
+              "2020-02-15",
+              "2020-03-15",
+              "2020-06-15",
+              "2020-07-15",
+            ],
+            y: [1, 4, 3, 4, 2],
+          },
+        ],
+        {
+          margin: { t: 0 },
+          xaxis: { tickformat: "%Y-%m-%d" },
+        }
+      );
+      graph3 = document.getElementById("graph3");
+      Plotly.newPlot(
+        graph3,
+        [
+          {
+            labels: [1, 2, 3, 4, 5],
+            values: [1, 2, 4, 8, 16],
+            type: "pie",
+          },
+        ],
+        {
+          margin: { t: 0 },
+        }
+      );
+    </script>
+  </body>
+</html>
